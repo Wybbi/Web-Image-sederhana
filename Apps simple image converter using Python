@@ -1,0 +1,95 @@
+//instal python flask
+pip install Flask
+
+//membuat halaman upload
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Image Converter</title>
+</head>
+<body>
+    <h1>Upload Gambar</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <select name="filter">
+            <option value="grayscale">Grayscale</option>
+            <option value="blur">Blur</option>
+        </select>
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>
+
+//membuat halaman hasil
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Image Converter Result</title>
+</head>
+<body>
+    <h1>Hasil Konversi Gambar</h1>
+    <div>
+        <h2>Gambar Asli</h2>
+        <img src="{{ original_url }}" alt="Original Image">
+    </div>
+    <div>
+        <h2>Gambar Hasil</h2>
+        <img src="{{ edited_url }}" alt="Edited Image">
+    </div>
+    <a href="/">Kembali</a>
+</body>
+</html>
+
+//membuat aplikasi flask
+from flask import Flask, request, render_template, send_from_directory, redirect, url_for
+from PIL import Image, ImageFilter
+import numpy as np
+import os
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'static/uploads/'
+
+def convert_to_grayscale(image):
+    grayscale_image = np.array(image.convert('L'))
+    return Image.fromarray(grayscale_image)
+
+def apply_blur(image):
+    blurred_image = np.array(image.filter(ImageFilter.BLUR))
+    return Image.fromarray(blurred_image)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return 'No file part'
+    file = request.files['file']
+    if file.filename == '':
+        return 'No selected file'
+    if file:
+        filename = file.filename
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        img = Image.open(filepath)
+        filter_type = request.form.get('filter')
+        if filter_type == 'grayscale':
+            edited_img = convert_to_grayscale(img)
+        elif filter_type == 'blur':
+            edited_img = apply_blur(img)
+        
+        edited_filename = 'edited_' + filename
+        edited_filepath = os.path.join(app.config['UPLOAD_FOLDER'], edited_filename)
+        edited_img.save(edited_filepath)
+        
+        return render_template('result.html', original_url=url_for('static', filename='uploads/' + filename), edited_url=url_for('static', filename='uploads/' + edited_filename))
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+//jalankan aplikasi
+python app.py
